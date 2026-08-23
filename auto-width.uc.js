@@ -133,38 +133,35 @@
       return width;
     }
 
-    async function waitForUnderflow() {
-      for (let attempt = 0; attempt < 24; attempt += 1) {
-        if (state.destroyed) return false;
-        lockOverflow();
-        window.dispatchEvent(new Event("resize"));
-        await sleep(25);
-        if (!overflowedPersistentButtons().length) return true;
-      }
-      return false;
-    }
+    async function pauseOverflowManagerForRecovery() {
+      if (!overflowedPersistentButtons().length) return null;
 
-    async function resetOverflowManager() {
       const overflowManager = topBar.overflowable;
       if (
         typeof overflowManager?.uninit !== "function" ||
         typeof overflowManager?.init !== "function"
       ) {
-        return false;
+        return null;
       }
 
+      // Firefox's public lifecycle path calls OverflowableToolbar.#disable(),
+      // aborting pending checks and returning existing overflow items without
+      // leaving its private bookkeeping out of sync. Keep it paused until the
+      // final sidebar width has been applied.
       overflowManager.uninit();
       try {
         for (let attempt = 0; attempt < 40; attempt += 1) {
-          if (state.destroyed) return false;
+          if (state.destroyed) return overflowManager;
           lockOverflow();
-          if (!overflowedPersistentButtons().length) return true;
+          if (!overflowedPersistentButtons().length) break;
           await sleep(25);
         }
-        return false;
-      } finally {
+      } catch (error) {
         overflowManager.init();
+        throw error;
       }
+
+      return overflowManager;
     }
 
     function requiredTargetOuterWidth() {
@@ -218,19 +215,12 @@
       if (toolbox.getAttribute("zen-sidebar-expanded") !== "true") return;
 
       state.running = true;
+      let pausedOverflowManager = null;
 
       try {
         lockOverflow();
-
-        // Break the circular fit-content calculation: make the actual toolbox
-        // wide first, then let OverflowableToolbar return every protected item.
-        applySidebarWidth(window.innerWidth, false);
+        pausedOverflowManager = await pauseOverflowManagerForRecovery();
         await afterLayout();
-
-        if (!(await waitForUnderflow())) {
-          await resetOverflowManager();
-          await afterLayout();
-        }
 
         if (overflowedPersistentButtons().length) {
           console.warn(
@@ -252,7 +242,13 @@
             `outer width: ${Math.ceil(toolbox.getBoundingClientRect().width)}px`,
         );
       } finally {
-        state.running = false;
+        // Re-enable overflow only after the exact width and protected-item
+        // attributes are in place. Its first check then sees a stable layout.
+        try {
+          pausedOverflowManager?.init();
+        } finally {
+          state.running = false;
+        }
       }
     }
 
@@ -262,9 +258,9 @@
       state.timer = window.setTimeout(calculate, 100);
     }
 
-    addObserver(new MutationObserver(schedule), customizationTarget, {
-      childList: true,
-    });
+    // Do not observe customizationTarget child mutations: Firefox itself moves
+    // items in and out of this node during overflow/underflow, so observing it
+    // creates a measurement feedback loop. aftercustomization covers real edits.
     addObserver(new MutationObserver(schedule), toolbox, {
       attributes: true,
       attributeFilter: ["zen-sidebar-expanded"],
