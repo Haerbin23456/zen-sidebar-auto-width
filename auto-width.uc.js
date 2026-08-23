@@ -322,27 +322,67 @@
         );
       });
 
-      const childrenWidth = children.reduce((total, child) => {
-        const style = getComputedStyle(child);
+      // At a narrow sidebar width the flex row compresses its buttons. Reading
+      // those compressed rectangles makes each recalculation add only a few
+      // pixels, producing a visible staircase toward the final width. Disable
+      // flex growth and shrinking synchronously so this pass sees the row's
+      // intrinsic size. The original inline declarations are restored before
+      // the browser can paint or deliver a resize/overflow notification.
+      const originalFlex = children.map((child) => [
+        child,
+        child.style.getPropertyValue("flex-grow"),
+        child.style.getPropertyPriority("flex-grow"),
+        child.style.getPropertyValue("flex-shrink"),
+        child.style.getPropertyPriority("flex-shrink"),
+      ]);
+
+      try {
+        for (const child of children) {
+          child.style.setProperty("flex-grow", "0", "important");
+          child.style.setProperty("flex-shrink", "0", "important");
+        }
+
+        const childrenWidth = children.reduce((total, child) => {
+          const style = getComputedStyle(child);
+          return (
+            total +
+            child.getBoundingClientRect().width +
+            px(style.marginLeft) +
+            px(style.marginRight)
+          );
+        }, 0);
+
+        const gap = px(targetStyle.columnGap);
+        const gapsWidth = Math.max(0, children.length - 1) * gap;
+
         return (
-          total +
-          child.getBoundingClientRect().width +
-          px(style.marginLeft) +
-          px(style.marginRight)
+          childrenWidth +
+          gapsWidth +
+          px(targetStyle.paddingLeft) +
+          px(targetStyle.paddingRight) +
+          px(targetStyle.borderLeftWidth) +
+          px(targetStyle.borderRightWidth)
         );
-      }, 0);
-
-      const gap = px(targetStyle.columnGap);
-      const gapsWidth = Math.max(0, children.length - 1) * gap;
-
-      return (
-        childrenWidth +
-        gapsWidth +
-        px(targetStyle.paddingLeft) +
-        px(targetStyle.paddingRight) +
-        px(targetStyle.borderLeftWidth) +
-        px(targetStyle.borderRightWidth)
-      );
+      } finally {
+        for (const [
+          child,
+          growValue,
+          growPriority,
+          shrinkValue,
+          shrinkPriority,
+        ] of originalFlex) {
+          if (growValue) {
+            child.style.setProperty("flex-grow", growValue, growPriority);
+          } else {
+            child.style.removeProperty("flex-grow");
+          }
+          if (shrinkValue) {
+            child.style.setProperty("flex-shrink", shrinkValue, shrinkPriority);
+          } else {
+            child.style.removeProperty("flex-shrink");
+          }
+        }
+      }
     }
 
     function calculateToolboxContentWidth() {
