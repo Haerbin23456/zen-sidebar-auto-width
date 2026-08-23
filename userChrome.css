@@ -34,10 +34,30 @@
     width: auto !important;
     min-width: max-content !important;
     max-width: none !important;
+    border-radius: var(--toolbarbutton-border-radius) !important;
+    background-clip: padding-box !important;
     padding-inline: calc(
       var(--zen-toolbar-button-inner-padding) +
       var(--toolbarbutton-padding-outer)
     ) !important;
     margin-inline: 0 !important;
+    transition:
+      background-color 0.1s,
+      transform 0.2s !important;
+  }
+
+  /* Match Zen's regular toolbar-button hover and pressed treatment. */
+  .titlebar-button:not(.titlebar-close):hover {
+    background-color: var(--toolbarbutton-hover-background) !important;
+  }
+
+  .titlebar-button:not(.titlebar-close):hover:active {
+    background-color: var(--toolbarbutton-active-background) !important;
+    transform: scale(0.95);
+  }
+
+  /* Keep Firefox's red close affordance, but give it the same geometry. */
+  .titlebar-button.titlebar-close:hover:active {
+    transform: scale(0.95);
   }
 }
