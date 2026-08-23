@@ -3,10 +3,11 @@
   pointer-events: none;
 }
 
-/* auto-width.uc.js updates this custom property after measuring the toolbar. */
-#navigator-toolbox[zen-sidebar-expanded="true"] {
-  --zen-toolbox-min-width: var(--zen-auto-sidebar-min-width, fit-content) !important;
-  min-width: var(--zen-auto-sidebar-min-width, fit-content) !important;
+/* auto-width.uc.js writes Zen's actual content width to this property. */
+#navigator-toolbox[zen-sidebar-expanded="true"][zen-auto-sidebar-width="true"] {
+  --zen-toolbox-min-width: var(--zen-auto-sidebar-content-width) !important;
+  width: var(--zen-auto-sidebar-content-width) !important;
+  min-width: var(--zen-auto-sidebar-content-width) !important;
 }
 
 /*

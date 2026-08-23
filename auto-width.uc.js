@@ -2,7 +2,8 @@
   "use strict";
 
   const INSTANCE_KEY = "__zenSidebarAutoWidth";
-  const root = document.documentElement;
+  const WIDTH_MARKER = "zen-auto-sidebar-width";
+  const WIDTH_PROPERTY = "--zen-auto-sidebar-content-width";
 
   // Sine can reload user scripts without restarting the browser.
   window[INSTANCE_KEY]?.destroy();
@@ -11,11 +12,17 @@
     destroyed: false,
     running: false,
     timer: 0,
+    toolbox: null,
+    originalWidth: null,
     observers: [],
     listeners: [],
   };
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const afterLayout = () =>
+    new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
 
   async function waitForElement(id) {
     for (let attempt = 0; attempt < 100 && !state.destroyed; attempt += 1) {
@@ -36,12 +43,32 @@
     state.observers.push(observer);
   }
 
+  function restoreToolboxWidth(toolbox, originalWidth) {
+    toolbox.removeAttribute(WIDTH_MARKER);
+    toolbox.style.removeProperty(WIDTH_PROPERTY);
+
+    const { styleValue, stylePriority, attributeValue } = originalWidth;
+    if (styleValue) {
+      toolbox.style.setProperty("width", styleValue, stylePriority);
+    } else {
+      toolbox.style.removeProperty("width");
+    }
+
+    if (attributeValue === null) toolbox.removeAttribute("width");
+    else toolbox.setAttribute("width", attributeValue);
+  }
+
   function destroy() {
     state.destroyed = true;
     clearTimeout(state.timer);
     state.observers.forEach((observer) => observer.disconnect());
     state.listeners.forEach((remove) => remove());
-    root.style.removeProperty("--zen-auto-sidebar-min-width");
+
+    const toolbox = state.toolbox;
+    if (toolbox && state.originalWidth) {
+      restoreToolboxWidth(toolbox, state.originalWidth);
+    }
+
     delete window[INSTANCE_KEY];
   }
 
@@ -60,12 +87,25 @@
       return;
     }
 
+    state.toolbox = toolbox;
+    state.originalWidth = {
+      styleValue: toolbox.style.getPropertyValue("width"),
+      stylePriority: toolbox.style.getPropertyPriority("width"),
+      attributeValue: toolbox.getAttribute("width"),
+    };
+
     const persistentButtonIds = [
       "PanelUI-button",
       "back-button",
       "forward-button",
       "stop-reload-button",
     ];
+    const separator = document.getElementById("zen-sidebar-top-buttons-separator");
+
+    function px(value) {
+      const number = Number.parseFloat(value);
+      return Number.isFinite(number) ? number : 0;
+    }
 
     function lockOverflow() {
       for (const id of persistentButtonIds) {
@@ -73,55 +113,108 @@
       }
     }
 
-    function hasOverflowedPersistentButton() {
-      return persistentButtonIds.some((id) =>
-        document.getElementById(id)?.hasAttribute("overflowedItem"),
-      );
+    function overflowedPersistentButtons() {
+      return persistentButtonIds
+        .map((id) => document.getElementById(id))
+        .filter((element) => element?.hasAttribute("overflowedItem"));
     }
 
-    async function restoreOverflowedPersistentButtons() {
-      lockOverflow();
-      if (!hasOverflowedPersistentButton()) return;
+    function applySidebarWidth(contentWidth, persistAttribute = true) {
+      const width = Math.max(1, Math.ceil(contentWidth));
+      const value = `${width}px`;
 
-      /*
-       * OverflowableToolbar keeps private bookkeeping for every item it moves.
-       * Moving a button in the DOM ourselves would leave that state stale.
-       * Its public uninit() path disables overflow and officially moves every
-       * item back; init() then starts it again after our protected attributes
-       * and temporary wide layout are in place.
-       */
+      toolbox.setAttribute(WIDTH_MARKER, "true");
+      toolbox.style.setProperty(WIDTH_PROPERTY, value);
+
+      // This is the same width path Zen initializes and its splitter updates.
+      toolbox.style.setProperty("width", value);
+      if (persistAttribute) toolbox.setAttribute("width", value);
+
+      return width;
+    }
+
+    async function waitForUnderflow() {
+      for (let attempt = 0; attempt < 24; attempt += 1) {
+        if (state.destroyed) return false;
+        lockOverflow();
+        window.dispatchEvent(new Event("resize"));
+        await sleep(25);
+        if (!overflowedPersistentButtons().length) return true;
+      }
+      return false;
+    }
+
+    async function resetOverflowManager() {
       const overflowManager = topBar.overflowable;
       if (
         typeof overflowManager?.uninit !== "function" ||
         typeof overflowManager?.init !== "function"
       ) {
-        console.warn("[Zen Auto Width] Overflow manager is unavailable.");
-        return;
+        return false;
       }
 
       overflowManager.uninit();
       try {
         for (let attempt = 0; attempt < 40; attempt += 1) {
+          if (state.destroyed) return false;
           lockOverflow();
-          if (!hasOverflowedPersistentButton()) break;
+          if (!overflowedPersistentButtons().length) return true;
           await sleep(25);
         }
+        return false;
       } finally {
         overflowManager.init();
       }
-
-      lockOverflow();
-      await afterLayout();
     }
 
-    const afterLayout = () =>
-      new Promise((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    function requiredTargetOuterWidth() {
+      const targetStyle = getComputedStyle(customizationTarget);
+      const children = Array.from(customizationTarget.children).filter((child) => {
+        if (child === separator) return false;
+        const style = getComputedStyle(child);
+        return (
+          style.display !== "none" &&
+          style.visibility !== "collapse" &&
+          (style.position === "static" || style.position === "relative")
+        );
+      });
+
+      const childrenWidth = children.reduce((total, child) => {
+        const style = getComputedStyle(child);
+        return (
+          total +
+          child.getBoundingClientRect().width +
+          px(style.marginLeft) +
+          px(style.marginRight)
+        );
+      }, 0);
+
+      const gap = px(targetStyle.columnGap);
+      const gapsWidth = Math.max(0, children.length - 1) * gap;
+
+      return (
+        childrenWidth +
+        gapsWidth +
+        px(targetStyle.paddingLeft) +
+        px(targetStyle.paddingRight) +
+        px(targetStyle.borderLeftWidth) +
+        px(targetStyle.borderRightWidth)
       );
+    }
+
+    function calculateToolboxContentWidth() {
+      const toolboxContentWidth = px(getComputedStyle(toolbox).width);
+      const targetAvailableWidth = customizationTarget.getBoundingClientRect().width;
+      const targetRequiredWidth = requiredTargetOuterWidth();
+
+      // Keep all non-target toolbox and toolbar chrome exactly as laid out by Zen.
+      return Math.ceil(
+        toolboxContentWidth - targetAvailableWidth + targetRequiredWidth + 2,
+      );
+    }
 
     async function calculate() {
-      if (state.destroyed) return;
-      if (state.running) return;
+      if (state.destroyed || state.running) return;
       if (toolbox.getAttribute("zen-sidebar-expanded") !== "true") return;
 
       state.running = true;
@@ -129,69 +222,41 @@
       try {
         lockOverflow();
 
-        const extraWidth = Math.max(
-          0,
-          toolbox.getBoundingClientRect().width - topBar.getBoundingClientRect().width,
-        );
-
-        // Temporarily expand the sidebar so Firefox can move overflowed items back.
-        root.style.setProperty("--zen-auto-sidebar-min-width", `${window.innerWidth}px`);
-        window.dispatchEvent(new Event("resize"));
-
+        // Break the circular fit-content calculation: make the actual toolbox
+        // wide first, then let OverflowableToolbar return every protected item.
+        applySidebarWidth(window.innerWidth, false);
         await afterLayout();
-        await restoreOverflowedPersistentButtons();
 
-        for (let attempt = 0; attempt < 12; attempt += 1) {
-          if (state.destroyed) return;
-          lockOverflow();
-          window.dispatchEvent(new Event("resize"));
-          await sleep(25);
-        }
-
-        const measuredProperties = ["width", "min-width", "max-width"];
-        const previousValues = Object.fromEntries(
-          measuredProperties.map((property) => [
-            property,
-            {
-              value: topBar.style.getPropertyValue(property),
-              priority: topBar.style.getPropertyPriority(property),
-            },
-          ]),
-        );
-
-        try {
-          topBar.style.setProperty("width", "max-content", "important");
-          topBar.style.setProperty("min-width", "max-content", "important");
-          topBar.style.setProperty("max-width", "none", "important");
+        if (!(await waitForUnderflow())) {
+          await resetOverflowManager();
           await afterLayout();
-
-          const requiredWidth =
-            Math.ceil(topBar.getBoundingClientRect().width + extraWidth) + 1;
-
-          if (Number.isFinite(requiredWidth) && requiredWidth > 0) {
-            root.style.setProperty(
-              "--zen-auto-sidebar-min-width",
-              `${requiredWidth}px`,
-            );
-            console.info(`[Zen Auto Width] Sidebar width: ${requiredWidth}px`);
-          }
-        } finally {
-          for (const property of measuredProperties) {
-            const { value, priority } = previousValues[property];
-            if (value) topBar.style.setProperty(property, value, priority);
-            else topBar.style.removeProperty(property);
-          }
         }
+
+        if (overflowedPersistentButtons().length) {
+          console.warn(
+            "[Zen Auto Width] Some protected buttons could not be restored.",
+          );
+          restoreToolboxWidth(toolbox, state.originalWidth);
+          return;
+        }
+
+        const requiredContentWidth = calculateToolboxContentWidth();
+        const appliedWidth = applySidebarWidth(requiredContentWidth);
 
         lockOverflow();
         window.dispatchEvent(new Event("resize"));
+        await afterLayout();
+
+        console.info(
+          `[Zen Auto Width] Sidebar content width: ${appliedWidth}px; ` +
+            `outer width: ${Math.ceil(toolbox.getBoundingClientRect().width)}px`,
+        );
       } finally {
         state.running = false;
       }
     }
 
     function schedule() {
-      // Ignore mutations and synthetic resize events caused by our own measurement.
       if (state.destroyed || state.running) return;
       clearTimeout(state.timer);
       state.timer = window.setTimeout(calculate, 100);
@@ -207,7 +272,10 @@
 
     addListener(window, "aftercustomization", schedule);
     addListener(window, "sizemodechange", schedule);
-    addListener(window, "resize", schedule);
+    addListener(window, "resize", (event) => {
+      // Zen and OverflowableToolbar also dispatch synthetic resize events.
+      if (event.isTrusted) schedule();
+    });
 
     if (window.matchMedia) {
       const densityQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
