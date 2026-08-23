@@ -21,12 +21,14 @@
     flex: 0 0 auto !important;
     width: fit-content !important;
     min-width: max-content !important;
+    align-items: center !important;
   }
 
   /*
    * Firefox's native Windows rule uses 18px of horizontal padding per side,
-   * which is intended for a full-width title bar. In Zen's sidebar, compose
-   * the spacing from Zen's own inner and outer toolbar-button padding instead.
+   * which is intended for a full-width title bar. Use the same outer padding
+   * as Zen's ordinary toolbar buttons; their shared icon layer supplies the
+   * matching inner square below.
    */
   .titlebar-button {
     box-sizing: border-box !important;
@@ -34,30 +36,45 @@
     width: auto !important;
     min-width: max-content !important;
     max-width: none !important;
-    border-radius: var(--toolbarbutton-border-radius) !important;
-    background-clip: padding-box !important;
-    padding-inline: calc(
-      var(--zen-toolbar-button-inner-padding) +
-      var(--toolbarbutton-padding-outer)
-    ) !important;
-    margin-inline: 0 !important;
-    transition:
-      background-color 0.1s,
-      transform 0.2s !important;
+    padding: 0 var(--toolbarbutton-padding-outer) !important;
+    margin: 0 !important;
+    align-self: center !important;
+    justify-content: center !important;
+    position: relative !important;
+    border-radius: 0 !important;
+    background-color: transparent !important;
   }
 
-  /* Match Zen's regular toolbar-button hover and pressed treatment. */
-  .titlebar-button:not(.titlebar-close):hover {
-    background-color: var(--toolbarbutton-hover-background) !important;
+  /*
+   * Firefox normally hides this child on caption controls. Reusing it as an
+   * empty visual layer means the normal .toolbarbutton-1 theme selectors draw
+   * the exact same square, radius, hover, active and focus treatment here.
+   */
+  .titlebar-button > .toolbarbutton-icon {
+    display: flex !important;
+    list-style-image: none !important;
   }
 
-  .titlebar-button:not(.titlebar-close):hover:active {
-    background-color: var(--toolbarbutton-active-background) !important;
-    transform: scale(0.95);
+  /* Keep Firefox's Segoe caption glyph centered above the shared visual layer. */
+  .titlebar-button::before {
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: none !important;
   }
 
-  /* Keep Firefox's red close affordance, but give it the same geometry. */
-  .titlebar-button.titlebar-close:hover:active {
-    transform: scale(0.95);
+  /* The close control differs only in its warning colors. */
+  .titlebar-button.titlebar-close:hover {
+    color: white !important;
+  }
+
+  .titlebar-button.titlebar-close:hover > .toolbarbutton-icon {
+    background-color: hsl(355, 86%, 49%) !important;
+  }
+
+  .titlebar-button.titlebar-close:hover:active > .toolbarbutton-icon {
+    background-color: hsl(355, 82%, 69%) !important;
   }
 }

@@ -16,6 +16,7 @@
     originalWidth: null,
     observers: [],
     listeners: [],
+    restorers: [],
   };
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -63,6 +64,7 @@
     clearTimeout(state.timer);
     state.observers.forEach((observer) => observer.disconnect());
     state.listeners.forEach((remove) => remove());
+    state.restorers.forEach((restore) => restore());
 
     const toolbox = state.toolbox;
     if (toolbox && state.originalWidth) {
@@ -101,6 +103,16 @@
       "stop-reload-button",
     ];
     const separator = document.getElementById("zen-sidebar-top-buttons-separator");
+
+    // Let Zen and third-party themes treat the caption controls as regular
+    // toolbar buttons. Their glyphs remain Firefox's native ::before content;
+    // the class is used for shared theme tokens and interaction rules.
+    for (const button of document.querySelectorAll(".titlebar-button")) {
+      if (!button.classList.contains("toolbarbutton-1")) {
+        button.classList.add("toolbarbutton-1");
+        state.restorers.push(() => button.classList.remove("toolbarbutton-1"));
+      }
+    }
 
     function px(value) {
       const number = Number.parseFloat(value);
