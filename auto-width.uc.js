@@ -42,7 +42,6 @@
     state.observers.forEach((observer) => observer.disconnect());
     state.listeners.forEach((remove) => remove());
     root.style.removeProperty("--zen-auto-sidebar-min-width");
-    root.style.removeProperty("--zen-normal-toolbar-button-width");
     delete window[INSTANCE_KEY];
   }
 
@@ -74,21 +73,6 @@
       }
     }
 
-    function updateWindowButtonWidth() {
-      const widths = ["back-button", "forward-button", "stop-reload-button"]
-        .map((id) => document.getElementById(id))
-        .filter(Boolean)
-        .map((element) => element.getBoundingClientRect().width)
-        .filter((width) => Number.isFinite(width) && width > 0)
-        .sort((a, b) => a - b);
-
-      if (!widths.length) return false;
-
-      const width = widths[Math.floor(widths.length / 2)];
-      root.style.setProperty("--zen-normal-toolbar-button-width", `${width}px`);
-      return true;
-    }
-
     const afterLayout = () =>
       new Promise((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(resolve)),
@@ -102,7 +86,6 @@
       state.running = true;
 
       try {
-        updateWindowButtonWidth();
         lockOverflow();
 
         const extraWidth = Math.max(

@@ -3,8 +3,8 @@
   "homepage": "https://github.com/Haerbin23456/zen-sidebar-auto-width",
   "author": "Haerbin23456",
   "name": "Zen Sidebar Auto Width",
-  "description": "Automatically sizes Zen's expanded sidebar and matches window controls to navigation button width.",
-  "version": "1.0.0",
+  "description": "Automatically sizes Zen's expanded sidebar and harmonizes Windows controls with its toolbar spacing.",
+  "version": "1.1.0",
   "createdAt": "2026-08-23",
   "updatedAt": "2026-08-23",
   "readme": "https://raw.githubusercontent.com/Haerbin23456/zen-sidebar-auto-width/main/README.md",
@@ -14,7 +14,7 @@
   "scripts": {
     "auto-width.uc.js": {
       "name": "Auto sidebar width",
-      "description": "Automatically sizes Zen's sidebar and window controls.",
+      "description": "Automatically measures Zen's expanded sidebar.",
       "include": [
         "chrome://browser/content/browser.xhtml"
       ]

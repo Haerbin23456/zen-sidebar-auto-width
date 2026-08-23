@@ -9,17 +9,34 @@
   min-width: var(--zen-auto-sidebar-min-width, fit-content) !important;
 }
 
-/* Match minimize, maximize and close to the measured navigation-button width. */
-.titlebar-button {
-  width: var(--zen-normal-toolbar-button-width) !important;
-  min-width: var(--zen-normal-toolbar-button-width) !important;
-  max-width: var(--zen-normal-toolbar-button-width) !important;
-  padding-inline: 0 !important;
-  margin-inline: 0 !important;
-}
+/*
+ * Zen puts the window controls inside this toolbar and sizes their container
+ * with fit-content. Keep that group intrinsic so its three buttons cannot be
+ * squeezed when the sidebar is narrow.
+ */
+@media (-moz-platform: windows) {
+  .titlebar-buttonbox-container,
+  .titlebar-buttonbox {
+    flex: 0 0 auto !important;
+    width: fit-content !important;
+    min-width: max-content !important;
+  }
 
-.titlebar-buttonbox,
-.titlebar-buttonbox-container {
-  width: auto !important;
-  min-width: 0 !important;
+  /*
+   * Firefox's native Windows rule uses 18px of horizontal padding per side,
+   * which is intended for a full-width title bar. In Zen's sidebar, compose
+   * the spacing from Zen's own inner and outer toolbar-button padding instead.
+   */
+  .titlebar-button {
+    box-sizing: border-box !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    padding-inline: calc(
+      var(--zen-toolbar-button-inner-padding) +
+      var(--toolbarbutton-padding-outer)
+    ) !important;
+    margin-inline: 0 !important;
+  }
 }
