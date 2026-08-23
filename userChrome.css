@@ -66,6 +66,15 @@
     pointer-events: none !important;
   }
 
+  /* Segoe's caption glyph bounds sit above their line box's optical center. */
+  .titlebar-button.titlebar-min::before {
+    translate: 0 1.5px !important;
+  }
+
+  .titlebar-button:is(.titlebar-max, .titlebar-restore, .titlebar-close)::before {
+    translate: 0 1px !important;
+  }
+
   /* The close control differs only in its warning colors. */
   .titlebar-button.titlebar-close:hover {
     color: white !important;
