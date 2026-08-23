@@ -1,0 +1,25 @@
+/* Let double-clicks on empty workspace chrome reach the Windows title bar. */
+.zen-workspace-empty-space {
+  pointer-events: none;
+}
+
+/* auto-width.uc.js updates this custom property after measuring the toolbar. */
+#navigator-toolbox[zen-sidebar-expanded="true"] {
+  --zen-toolbox-min-width: var(--zen-auto-sidebar-min-width, fit-content) !important;
+  min-width: var(--zen-auto-sidebar-min-width, fit-content) !important;
+}
+
+/* Match minimize, maximize and close to the measured navigation-button width. */
+.titlebar-button {
+  width: var(--zen-normal-toolbar-button-width) !important;
+  min-width: var(--zen-normal-toolbar-button-width) !important;
+  max-width: var(--zen-normal-toolbar-button-width) !important;
+  padding-inline: 0 !important;
+  margin-inline: 0 !important;
+}
+
+.titlebar-buttonbox,
+.titlebar-buttonbox-container {
+  width: auto !important;
+  min-width: 0 !important;
+}
