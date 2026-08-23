@@ -20,6 +20,7 @@ It automatically sets the expanded sidebar's minimum width so the complete top r
 
 - Uses Zen's own toolbar padding variables for the three Windows controls instead of Firefox's full-titlebar `18px` side padding.
 - Keeps the window-control container at its intrinsic width so the three glyphs cannot overlap or become unevenly compressed.
+- Restores protected navigation buttons through Firefox's overflow manager if they were already moved into `>>` before the mod loaded.
 - Measures the full top row and expands the sidebar just enough to keep it visible.
 - Recalculates after customization, sidebar expansion, window resizing, and display-scale changes.
 

@@ -73,6 +73,47 @@
       }
     }
 
+    function hasOverflowedPersistentButton() {
+      return persistentButtonIds.some((id) =>
+        document.getElementById(id)?.hasAttribute("overflowedItem"),
+      );
+    }
+
+    async function restoreOverflowedPersistentButtons() {
+      lockOverflow();
+      if (!hasOverflowedPersistentButton()) return;
+
+      /*
+       * OverflowableToolbar keeps private bookkeeping for every item it moves.
+       * Moving a button in the DOM ourselves would leave that state stale.
+       * Its public uninit() path disables overflow and officially moves every
+       * item back; init() then starts it again after our protected attributes
+       * and temporary wide layout are in place.
+       */
+      const overflowManager = topBar.overflowable;
+      if (
+        typeof overflowManager?.uninit !== "function" ||
+        typeof overflowManager?.init !== "function"
+      ) {
+        console.warn("[Zen Auto Width] Overflow manager is unavailable.");
+        return;
+      }
+
+      overflowManager.uninit();
+      try {
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+          lockOverflow();
+          if (!hasOverflowedPersistentButton()) break;
+          await sleep(25);
+        }
+      } finally {
+        overflowManager.init();
+      }
+
+      lockOverflow();
+      await afterLayout();
+    }
+
     const afterLayout = () =>
       new Promise((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(resolve)),
@@ -96,6 +137,9 @@
         // Temporarily expand the sidebar so Firefox can move overflowed items back.
         root.style.setProperty("--zen-auto-sidebar-min-width", `${window.innerWidth}px`);
         window.dispatchEvent(new Event("resize"));
+
+        await afterLayout();
+        await restoreOverflowedPersistentButtons();
 
         for (let attempt = 0; attempt < 12; attempt += 1) {
           if (state.destroyed) return;
