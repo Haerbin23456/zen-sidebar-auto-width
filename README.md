@@ -24,6 +24,7 @@ It automatically forces the expanded sidebar to the exact measured width needed 
 - Uses Zen's own toolbar padding variables for the three Windows controls instead of Firefox's full-titlebar `18px` side padding.
 - Keeps the window-control container at its intrinsic width so the three glyphs cannot overlap or become unevenly compressed.
 - Gives the Windows controls Zen's exact square toolbar-button geometry, theme classes, hover and pressed treatment; the close button differs only by retaining its warning color.
+- Measures a real neighboring navigation button so themes that target button IDs directly can also synchronize control size, radius, spacing, color tokens, and vertical alignment.
 - Marks the navigation buttons with Firefox's official non-overflowing attribute and measures the complete row without temporarily widening the sidebar.
 - If a button was already inside `>>` before the mod loaded, briefly pauses Firefox's overflow manager so its own underflow path returns the button before measurement.
 - Writes the result through the same inline `width` and `width` attribute path used by Zen's sidebar splitter, then forces that exact width while the sidebar is expanded.

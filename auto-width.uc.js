@@ -4,6 +4,14 @@
   const INSTANCE_KEY = "__zenSidebarAutoWidth";
   const WIDTH_MARKER = "zen-auto-sidebar-width";
   const WIDTH_PROPERTY = "--zen-auto-sidebar-content-width";
+  const CONTROL_THEME_PROPERTIES = [
+    "--zen-auto-window-control-width",
+    "--zen-auto-window-control-height",
+    "--zen-auto-window-control-radius",
+    "--zen-auto-window-control-outer-padding",
+    "--zen-auto-window-controls-offset-y",
+    "--zen-auto-window-control-color",
+  ];
 
   // Sine can reload user scripts without restarting the browser.
   window[INSTANCE_KEY]?.destroy();
@@ -12,6 +20,8 @@
     destroyed: false,
     running: false,
     timer: 0,
+    themeTimer: 0,
+    themeRunning: false,
     toolbox: null,
     originalWidth: null,
     observers: [],
@@ -62,6 +72,7 @@
   function destroy() {
     state.destroyed = true;
     clearTimeout(state.timer);
+    clearTimeout(state.themeTimer);
     state.observers.forEach((observer) => observer.disconnect());
     state.listeners.forEach((remove) => remove());
     state.restorers.forEach((restore) => restore());
@@ -103,6 +114,25 @@
       "stop-reload-button",
     ];
     const separator = document.getElementById("zen-sidebar-top-buttons-separator");
+    const controlsContainer = document.querySelector(
+      ".titlebar-buttonbox-container",
+    );
+
+    if (controlsContainer) {
+      const originalThemeProperties = CONTROL_THEME_PROPERTIES.map(
+        (property) => [
+          property,
+          controlsContainer.style.getPropertyValue(property),
+          controlsContainer.style.getPropertyPriority(property),
+        ],
+      );
+      state.restorers.push(() => {
+        for (const [property, value, priority] of originalThemeProperties) {
+          if (value) controlsContainer.style.setProperty(property, value, priority);
+          else controlsContainer.style.removeProperty(property);
+        }
+      });
+    }
 
     // Let Zen and third-party themes treat the caption controls as regular
     // toolbar buttons. Their glyphs remain Firefox's native ::before content;
@@ -117,6 +147,110 @@
     function px(value) {
       const number = Number.parseFloat(value);
       return Number.isFinite(number) ? number : 0;
+    }
+
+    function visibleReferenceButton() {
+      for (const id of [
+        "reload-button",
+        "stop-button",
+        "back-button",
+        "forward-button",
+        "PanelUI-menu-button",
+      ]) {
+        const button = document.getElementById(id);
+        const visual = button?.querySelector(
+          ":scope > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack)",
+        );
+        if (
+          button &&
+          visual &&
+          !button.matches(":hover") &&
+          button.getBoundingClientRect().width > 0 &&
+          visual.getBoundingClientRect().width > 0
+        ) {
+          return { button, visual };
+        }
+      }
+      return null;
+    }
+
+    async function syncWindowControlTheme() {
+      if (state.destroyed || state.themeRunning || !controlsContainer) return;
+
+      const reference = visibleReferenceButton();
+      const targetVisual = controlsContainer.querySelector(
+        ".titlebar-button > .toolbarbutton-icon",
+      );
+      if (!reference || !targetVisual) return;
+
+      state.themeRunning = true;
+      try {
+        // Measure the theme's real neighboring button rather than assuming it
+        // uses Firefox's generic toolbar tokens. Themes such as Nebula target
+        // navigation IDs directly and deliberately exclude caption controls.
+        const referenceButtonRect = reference.button.getBoundingClientRect();
+        const referenceVisualRect = reference.visual.getBoundingClientRect();
+        const referenceStyle = getComputedStyle(reference.visual);
+        const referenceGlyphColor =
+          referenceStyle.fill && CSS.supports("color", referenceStyle.fill)
+            ? referenceStyle.fill
+            : referenceStyle.color;
+        const outerPadding = Math.max(
+          0,
+          (referenceButtonRect.width - referenceVisualRect.width) / 2,
+        );
+        const previousOffset = px(
+          controlsContainer.style.getPropertyValue(
+            "--zen-auto-window-controls-offset-y",
+          ),
+        );
+
+        controlsContainer.style.setProperty(
+          "--zen-auto-window-control-width",
+          `${referenceVisualRect.width}px`,
+        );
+        controlsContainer.style.setProperty(
+          "--zen-auto-window-control-height",
+          `${referenceVisualRect.height}px`,
+        );
+        controlsContainer.style.setProperty(
+          "--zen-auto-window-control-radius",
+          referenceStyle.borderRadius,
+        );
+        controlsContainer.style.setProperty(
+          "--zen-auto-window-control-outer-padding",
+          `${outerPadding}px`,
+        );
+        controlsContainer.style.setProperty(
+          "--zen-auto-window-control-color",
+          referenceGlyphColor,
+        );
+
+        await afterLayout();
+        if (state.destroyed) return;
+
+        const updatedReferenceRect = reference.visual.getBoundingClientRect();
+        const targetRect = targetVisual.getBoundingClientRect();
+        const referenceCenter =
+          updatedReferenceRect.top + updatedReferenceRect.height / 2;
+        const targetCenterWithoutOurOffset =
+          targetRect.top + targetRect.height / 2 - previousOffset;
+        const offsetY =
+          Math.round((referenceCenter - targetCenterWithoutOurOffset) * 2) / 2;
+
+        controlsContainer.style.setProperty(
+          "--zen-auto-window-controls-offset-y",
+          `${offsetY}px`,
+        );
+        console.info(
+          `[Zen Auto Width] Window controls synced to ${reference.button.id}: ` +
+            `${referenceVisualRect.width}x${referenceVisualRect.height}px, ` +
+            `radius ${referenceStyle.borderRadius}, color ${referenceGlyphColor}, ` +
+            `offset ${offsetY}px`,
+        );
+      } finally {
+        state.themeRunning = false;
+      }
     }
 
     function lockOverflow() {
@@ -265,31 +399,60 @@
     }
 
     function schedule() {
-      if (state.destroyed || state.running) return;
+      if (state.destroyed) return;
       clearTimeout(state.timer);
       state.timer = window.setTimeout(calculate, 100);
+    }
+
+    function scheduleThemeSync() {
+      if (state.destroyed) return;
+      clearTimeout(state.themeTimer);
+      state.themeTimer = window.setTimeout(async () => {
+        try {
+          await syncWindowControlTheme();
+          schedule();
+        } catch (error) {
+          console.error("[Zen Auto Width] Theme sync failed:", error);
+        }
+      }, 100);
+    }
+
+    function scheduleAll() {
+      scheduleThemeSync();
+      schedule();
     }
 
     // Do not observe customizationTarget child mutations: Firefox itself moves
     // items in and out of this node during overflow/underflow, so observing it
     // creates a measurement feedback loop. aftercustomization covers real edits.
-    addObserver(new MutationObserver(schedule), toolbox, {
+    addObserver(new MutationObserver(scheduleAll), toolbox, {
       attributes: true,
       attributeFilter: ["zen-sidebar-expanded"],
     });
+    addObserver(new MutationObserver(scheduleThemeSync), document.documentElement, {
+      attributes: true,
+    });
+    if (document.head) {
+      addObserver(new MutationObserver(scheduleThemeSync), document.head, {
+        childList: true,
+      });
+    }
 
-    addListener(window, "aftercustomization", schedule);
-    addListener(window, "sizemodechange", schedule);
+    addListener(window, "aftercustomization", scheduleAll);
+    addListener(window, "sizemodechange", scheduleAll);
     addListener(window, "resize", (event) => {
       // Zen and OverflowableToolbar also dispatch synthetic resize events.
-      if (event.isTrusted) schedule();
+      if (event.isTrusted) scheduleAll();
     });
 
     if (window.matchMedia) {
-      const densityQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
-      addListener(densityQuery, "change", schedule);
+      const densityQuery = window.matchMedia(
+        `(resolution: ${window.devicePixelRatio}dppx)`,
+      );
+      addListener(densityQuery, "change", scheduleAll);
     }
 
+    await syncWindowControlTheme();
     await calculate();
   }
 

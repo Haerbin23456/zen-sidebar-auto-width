@@ -24,6 +24,10 @@
     align-items: center !important;
   }
 
+  .titlebar-buttonbox-container {
+    translate: 0 var(--zen-auto-window-controls-offset-y, 0px) !important;
+  }
+
   /*
    * Firefox's native Windows rule uses 18px of horizontal padding per side,
    * which is intended for a full-width title bar. Use the same outer padding
@@ -36,13 +40,18 @@
     width: auto !important;
     min-width: max-content !important;
     max-width: none !important;
-    padding: 0 var(--toolbarbutton-padding-outer) !important;
+    padding: 0
+      var(
+        --zen-auto-window-control-outer-padding,
+        var(--toolbarbutton-padding-outer)
+      ) !important;
     margin: 0 !important;
     align-self: center !important;
     justify-content: center !important;
     position: relative !important;
     border-radius: 0 !important;
     background-color: transparent !important;
+    color: var(--zen-auto-window-control-color, currentColor) !important;
   }
 
   /*
@@ -54,6 +63,27 @@
     display: flex !important;
     box-sizing: border-box !important;
     list-style-image: none !important;
+    width: var(--zen-auto-window-control-width) !important;
+    height: var(--zen-auto-window-control-height) !important;
+    border-radius: var(
+      --zen-auto-window-control-radius,
+      var(--toolbarbutton-border-radius)
+    ) !important;
+  }
+
+  /* Prefer the topbar token used by Zen themes, then Firefox's newer token. */
+  .titlebar-button:not(.titlebar-close):hover > .toolbarbutton-icon {
+    background-color: var(
+      --toolbarbutton-hover-background,
+      var(--toolbarbutton-background-color-hover)
+    ) !important;
+  }
+
+  .titlebar-button:not(.titlebar-close):hover:active > .toolbarbutton-icon {
+    background-color: var(
+      --toolbarbutton-active-background,
+      var(--toolbarbutton-background-color-active)
+    ) !important;
   }
 
   /* Keep Firefox's Segoe caption glyph centered above the shared visual layer. */
