@@ -52,6 +52,7 @@
    */
   .titlebar-button > .toolbarbutton-icon {
     display: flex !important;
+    box-sizing: border-box !important;
     list-style-image: none !important;
   }
 
