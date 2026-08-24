@@ -42,12 +42,12 @@
     background: conic-gradient(
       from 20deg,
       transparent 0deg 85deg,
-      currentColor 85deg 360deg
+      var(--toolbarbutton-icon-fill, currentColor) 85deg 360deg
     ) !important;
     mask: radial-gradient(
       farthest-side,
-      transparent calc(100% - 2px),
-      black calc(100% - 1.5px)
+      transparent calc(100% - 1.5px),
+      black calc(100% - 1px)
     ) !important;
     pointer-events: none !important;
     animation: zen-auto-stop-loading 800ms linear infinite !important;
