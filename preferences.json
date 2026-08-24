@@ -1,0 +1,20 @@
+[
+  {
+    "type": "dropdown",
+    "value": "number",
+    "property": "zen-sidebar-auto-width-loading-indicator",
+    "label": "Loading indicator",
+    "defaultValue": 1,
+    "placeholder": false,
+    "options": [
+      {
+        "label": "Rotate the current reload icon (Recommended)",
+        "value": 1
+      },
+      {
+        "label": "Arrowless gap ring",
+        "value": 2
+      }
+    ]
+  }
+]

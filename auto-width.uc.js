@@ -4,6 +4,10 @@
   const INSTANCE_KEY = "__zenSidebarAutoWidth";
   const WIDTH_MARKER = "zen-auto-sidebar-width";
   const WIDTH_PROPERTY = "--zen-auto-sidebar-content-width";
+  const LOADING_MODE_PREF = "zen-sidebar-auto-width-loading-indicator";
+  const LOADING_MODE_RELOAD = 1;
+  const LOADING_MODE_RING = 2;
+  const LOADING_SPIN_DURATION = 800;
   const CONTROL_THEME_PROPERTIES = [
     "--zen-auto-window-control-width",
     "--zen-auto-window-control-height",
@@ -22,6 +26,8 @@
     timer: 0,
     themeTimer: 0,
     themeRunning: false,
+    loadingAnimation: null,
+    loadingFinishAnimation: null,
     toolbox: null,
     originalWidth: null,
     observers: [],
@@ -114,9 +120,244 @@
       "stop-reload-button",
     ];
     const separator = document.getElementById("zen-sidebar-top-buttons-separator");
+    const stopReload = document.getElementById("stop-reload-button");
+    const reloadButton = document.getElementById("reload-button");
+    const stopButton = document.getElementById("stop-button");
     const controlsContainer = document.querySelector(
       ".titlebar-buttonbox-container",
     );
+
+    function setupLoadingIndicator() {
+      if (
+        !navigator.platform.startsWith("Win") ||
+        !stopReload ||
+        !reloadButton ||
+        !stopButton
+      ) {
+        return () => {};
+      }
+
+      const prefService =
+        globalThis.Services?.prefs ??
+        ChromeUtils.importESModule(
+          "resource://gre/modules/Services.sys.mjs",
+        ).Services.prefs;
+
+      const glyph = document.createElement("span");
+      glyph.className = "zen-auto-loading-glyph";
+      glyph.setAttribute("aria-hidden", "true");
+      stopReload.append(glyph);
+
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      );
+      let wasLoading = false;
+      let mode = LOADING_MODE_RELOAD;
+
+      function cancelAnimation(property) {
+        state[property]?.cancel();
+        state[property] = null;
+      }
+
+      function renderedAngle() {
+        const transform = getComputedStyle(glyph).transform;
+        if (!transform || transform === "none") return 0;
+
+        try {
+          const matrix = new DOMMatrixReadOnly(transform);
+          const degrees = (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI;
+          return (degrees + 360) % 360;
+        } catch {
+          return 0;
+        }
+      }
+
+      function hideGlyph() {
+        cancelAnimation("loadingAnimation");
+        cancelAnimation("loadingFinishAnimation");
+        stopReload.removeAttribute("zen-auto-loading-active");
+        stopReload.removeAttribute("zen-auto-loading-finishing");
+        glyph.style.removeProperty("transform");
+      }
+
+      function syncLoadingIcon() {
+        const reloadVisual = reloadButton.querySelector(
+          ":scope > .toolbarbutton-icon",
+        );
+        const buttonStyle = getComputedStyle(reloadButton);
+        const visualStyle = reloadVisual
+          ? getComputedStyle(reloadVisual)
+          : buttonStyle;
+        const buttonImage = buttonStyle.listStyleImage;
+        const visualImage = visualStyle.listStyleImage;
+        const image =
+          buttonImage && buttonImage !== "none" ? buttonImage : visualImage;
+        const color =
+          visualStyle.fill && CSS.supports("color", visualStyle.fill)
+            ? visualStyle.fill
+            : visualStyle.color;
+
+        if (image && image !== "none") {
+          stopReload.style.setProperty("--zen-auto-loading-image", image);
+        } else {
+          stopReload.style.removeProperty("--zen-auto-loading-image");
+        }
+        if (color && CSS.supports("color", color)) {
+          stopReload.style.setProperty("--zen-auto-loading-color", color);
+        } else {
+          stopReload.style.removeProperty("--zen-auto-loading-color");
+        }
+        stopReload.style.setProperty(
+          "--zen-auto-loading-opacity",
+          visualStyle.fillOpacity || "1",
+        );
+        stopReload.style.setProperty(
+          "--zen-auto-loading-element-opacity",
+          visualStyle.opacity || "1",
+        );
+      }
+
+      function startLoading() {
+        syncLoadingIcon();
+        const startAngle = stopReload.hasAttribute(
+          "zen-auto-loading-finishing",
+        )
+          ? renderedAngle()
+          : 0;
+
+        cancelAnimation("loadingAnimation");
+        cancelAnimation("loadingFinishAnimation");
+        stopReload.removeAttribute("zen-auto-loading-finishing");
+        stopReload.setAttribute("zen-auto-loading-active", "true");
+        glyph.style.transform = `rotate(${startAngle}deg)`;
+
+        if (reducedMotion.matches) return;
+        state.loadingAnimation = glyph.animate(
+          [
+            { transform: `rotate(${startAngle}deg)` },
+            { transform: `rotate(${startAngle + 360}deg)` },
+          ],
+          {
+            duration: LOADING_SPIN_DURATION,
+            iterations: Infinity,
+            easing: "linear",
+          },
+        );
+      }
+
+      function finishLoading() {
+        // Firefox has already revealed (and may temporarily disable) Reload by
+        // the time the mutation observer runs, so also match its final color.
+        syncLoadingIcon();
+        const angle = renderedAngle();
+        cancelAnimation("loadingAnimation");
+        stopReload.removeAttribute("zen-auto-loading-active");
+
+        // The old ring is a different shape, so only the reused reload SVG can
+        // visually settle into the native reload icon at its original angle.
+        if (
+          mode !== LOADING_MODE_RELOAD ||
+          reducedMotion.matches ||
+          angle < 0.5 ||
+          angle > 359.5
+        ) {
+          hideGlyph();
+          return;
+        }
+
+        stopReload.setAttribute("zen-auto-loading-finishing", "true");
+        const remaining = 360 - angle;
+        const duration = Math.max(
+          70,
+          Math.min(220, Math.round(70 + (remaining / 360) * 150)),
+        );
+        const animation = glyph.animate(
+          [
+            { transform: `rotate(${angle}deg)` },
+            { transform: "rotate(360deg)" },
+          ],
+          {
+            duration,
+            easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            fill: "forwards",
+          },
+        );
+        state.loadingFinishAnimation = animation;
+        animation.onfinish = () => {
+          if (state.loadingFinishAnimation !== animation) return;
+          state.loadingFinishAnimation = null;
+          animation.cancel();
+          stopReload.removeAttribute("zen-auto-loading-finishing");
+          glyph.style.removeProperty("transform");
+        };
+      }
+
+      function syncLoadingState() {
+        const isLoading = reloadButton.hasAttribute("displaystop");
+        if (isLoading === wasLoading) return;
+        wasLoading = isLoading;
+        if (isLoading) startLoading();
+        else finishLoading();
+      }
+
+      function applyLoadingMode() {
+        try {
+          mode = prefService.getIntPref(
+            LOADING_MODE_PREF,
+            LOADING_MODE_RELOAD,
+          );
+        } catch {
+          mode = LOADING_MODE_RELOAD;
+        }
+        if (mode !== LOADING_MODE_RING) mode = LOADING_MODE_RELOAD;
+        stopReload.setAttribute(
+          "zen-auto-loading-mode",
+          mode === LOADING_MODE_RING ? "ring" : "reload",
+        );
+        syncLoadingIcon();
+        if (stopReload.hasAttribute("zen-auto-loading-finishing")) {
+          hideGlyph();
+        }
+      }
+
+      const loadingObserver = new MutationObserver(syncLoadingState);
+      addObserver(loadingObserver, reloadButton, {
+        attributes: true,
+        attributeFilter: ["displaystop"],
+      });
+      addListener(
+        stopReload,
+        "zen-auto-sync-loading-icon",
+        syncLoadingIcon,
+      );
+
+      const prefObserver = { observe: applyLoadingMode };
+      prefService.addObserver(LOADING_MODE_PREF, prefObserver);
+      addListener(reducedMotion, "change", () => {
+        if (wasLoading) startLoading();
+        else hideGlyph();
+      });
+
+      applyLoadingMode();
+      if (reloadButton.hasAttribute("displaystop")) {
+        wasLoading = true;
+        startLoading();
+      }
+
+      return () => {
+        prefService.removeObserver(LOADING_MODE_PREF, prefObserver);
+        hideGlyph();
+        stopReload.removeAttribute("zen-auto-loading-mode");
+        stopReload.style.removeProperty("--zen-auto-loading-image");
+        stopReload.style.removeProperty("--zen-auto-loading-color");
+        stopReload.style.removeProperty("--zen-auto-loading-opacity");
+        stopReload.style.removeProperty("--zen-auto-loading-element-opacity");
+        glyph.remove();
+      };
+    }
+
+    const destroyLoadingIndicator = setupLoadingIndicator();
+    state.restorers.push(destroyLoadingIndicator);
 
     if (controlsContainer) {
       const originalThemeProperties = CONTROL_THEME_PROPERTIES.map(
@@ -449,6 +690,9 @@
       clearTimeout(state.themeTimer);
       state.themeTimer = window.setTimeout(async () => {
         try {
+          stopReload?.dispatchEvent(
+            new CustomEvent("zen-auto-sync-loading-icon"),
+          );
           await syncWindowControlTheme();
           schedule();
         } catch (error) {

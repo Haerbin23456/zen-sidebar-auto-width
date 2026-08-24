@@ -17,49 +17,72 @@
  */
 @media (-moz-platform: windows) {
   /*
-   * Firefox turns reload into an X while a page is loading. With the native
-   * window close control in the same compact row that produces two identical
-   * X glyphs, so keep the themed button shell and draw a loading ring above it.
+   * Firefox turns reload into an X while a page is loading. The script places
+   * a glyph on the stable combined-button wrapper so it can remain visible
+   * briefly after Firefox swaps the Stop button back to Reload.
    */
-  #stop-button {
+  #stop-reload-button {
     position: relative !important;
   }
 
-  #stop-button > .toolbarbutton-icon {
+  #stop-reload-button[zen-auto-loading-active="true"]
+    #stop-button
+    > .toolbarbutton-icon,
+  #stop-reload-button[zen-auto-loading-finishing="true"]
+    #reload-button
+    > .toolbarbutton-icon {
     list-style-image: none !important;
   }
 
-  #stop-button::after {
-    content: "" !important;
+  #stop-reload-button > .zen-auto-loading-glyph {
+    display: none !important;
     position: absolute !important;
     z-index: 1 !important;
-    top: 50% !important;
-    left: 50% !important;
+    inset: 0 !important;
+    margin: auto !important;
     width: 16px !important;
     height: 16px !important;
-    translate: -50% -50% !important;
-    border-radius: 50% !important;
-    background: var(--toolbarbutton-icon-fill, currentColor) !important;
-    /*
-     * Use the same filled outer/inner contours as reload.svg instead of an SVG
-     * stroke. Gecko rasterizes strokes more heavily than the reload icon's
-     * filled path even at the same nominal width.
-     */
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M9 1A8 8 0 1 1 1 9L2.5 9A6.5 6.5 0 1 0 9 2.5Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat !important;
     pointer-events: none !important;
-    animation: zen-auto-stop-loading 800ms linear infinite !important;
+    -moz-context-properties: fill, fill-opacity, stroke, stroke-opacity !important;
+    fill: var(
+      --zen-auto-loading-color,
+      var(--toolbarbutton-icon-fill, currentColor)
+    ) !important;
+    stroke: var(
+      --zen-auto-loading-color,
+      var(--toolbarbutton-icon-fill, currentColor)
+    ) !important;
+    fill-opacity: var(--zen-auto-loading-opacity, 1) !important;
+    stroke-opacity: var(--zen-auto-loading-opacity, 1) !important;
+    opacity: var(--zen-auto-loading-element-opacity, 1) !important;
   }
 
-  @keyframes zen-auto-stop-loading {
-    to {
-      rotate: 1turn;
-    }
+  #stop-reload-button:is(
+      [zen-auto-loading-active="true"],
+      [zen-auto-loading-finishing="true"]
+    )
+    > .zen-auto-loading-glyph {
+    display: block !important;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    #stop-button::after {
-      animation: none !important;
-    }
+  /* Default: rotate the exact reload SVG currently supplied by Zen/the theme. */
+  #stop-reload-button[zen-auto-loading-mode="reload"]
+    > .zen-auto-loading-glyph {
+    background-image: var(--zen-auto-loading-image) !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-size: contain !important;
+  }
+
+  /* Optional legacy indicator: an arrowless gap ring. */
+  #stop-reload-button[zen-auto-loading-mode="ring"]
+    > .zen-auto-loading-glyph {
+    border-radius: 50% !important;
+    background: var(
+      --zen-auto-loading-color,
+      var(--toolbarbutton-icon-fill, currentColor)
+    ) !important;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M9 1A8 8 0 1 1 1 9L2.5 9A6.5 6.5 0 1 0 9 2.5Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat !important;
   }
 
   .titlebar-buttonbox-container,

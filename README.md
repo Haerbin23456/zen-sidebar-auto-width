@@ -24,12 +24,20 @@ It automatically forces the expanded sidebar to the exact measured width needed 
 - Uses Zen's own toolbar padding variables for the three Windows controls instead of Firefox's full-titlebar `18px` side padding.
 - Keeps the window-control container at its intrinsic width so the three glyphs cannot overlap or become unevenly compressed.
 - Gives the Windows controls Zen's exact square toolbar-button geometry, theme classes, hover and pressed treatment; the close button differs only by retaining its warning color.
-- Uses a theme-colored loading ring for the stop action so a loading page does not add a second window-close glyph.
+- Reuses and rotates the reload SVG that is actually active after Zen, themes, and other icon Mods have applied their styles, so loading does not add a second window-close glyph or introduce a mismatched replacement icon.
+- Quickly settles the rotating reload SVG back to its original angle when loading completes, then reveals Firefox's normal reload button without an abrupt orientation jump. Reduced-motion mode switches directly.
 - Measures a real neighboring navigation button so themes that target button IDs directly can also synchronize control size, radius, spacing, color tokens, and vertical alignment.
 - Marks the navigation buttons with Firefox's official non-overflowing attribute and measures the row at its uncompressed intrinsic width without temporarily widening the sidebar.
 - If a button was already inside `>>` before the mod loaded, briefly pauses Firefox's overflow manager so its own underflow path returns the button before measurement.
 - Writes the result through the same inline `width` and `width` attribute path used by Zen's sidebar splitter, then forces that exact width while the sidebar is expanded.
 - Recalculates after customization, sidebar expansion, window resizing, and display-scale changes.
+
+## Options
+
+The **Loading indicator** dropdown in this Mod's Sine settings offers:
+
+- **Rotate the current reload icon (Recommended)** — the default. It follows the effective icon supplied by Zen or another Mod and includes the completion alignment animation.
+- **Arrowless gap ring** — retains the previous generic loading ring.
 
 ## Compatibility
 
