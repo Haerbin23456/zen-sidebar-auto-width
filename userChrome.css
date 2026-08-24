@@ -41,11 +41,11 @@
     border-radius: 50% !important;
     background: var(--toolbarbutton-icon-fill, currentColor) !important;
     /*
-     * Match reload.svg exactly: an 18x18 viewport, outer radius 8 and a
-     * 1.5-unit ring. In the shared 16px icon box this occupies 14.22px,
-     * instead of filling the entire box as the previous CSS ring did.
+     * Match reload.svg's 18x18 viewport and outer radius 8, while using a
+     * slightly lighter 1.333-unit ring so the uninterrupted arc has the same
+     * optical weight as the reload glyph.
      */
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='7.25' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-dasharray='33.3 12.25'/%3E%3C/svg%3E") center / contain no-repeat !important;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='7.3335' fill='none' stroke='black' stroke-width='1.333' stroke-linecap='round' stroke-dasharray='33.7 12.38'/%3E%3C/svg%3E") center / contain no-repeat !important;
     pointer-events: none !important;
     animation: zen-auto-stop-loading 800ms linear infinite !important;
   }
