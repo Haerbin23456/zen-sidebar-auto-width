@@ -267,10 +267,18 @@
 
         stopReload.setAttribute("zen-auto-loading-finishing", "true");
         const remaining = 360 - angle;
-        const duration = Math.max(
-          70,
-          Math.min(220, Math.round(70 + (remaining / 360) * 150)),
+        const angularVelocity = 360 / LOADING_SPIN_DURATION;
+        const preferredDuration = 140 + (remaining / 360) * 240;
+        const longestMonotonicDuration = (3 * remaining) / angularVelocity;
+        const duration = Math.min(
+          preferredDuration,
+          longestMonotonicDuration,
         );
+        const normalizedStartVelocity = Math.min(
+          3,
+          (angularVelocity * duration) / remaining,
+        );
+        const firstControlY = normalizedStartVelocity / 3;
         const animation = glyph.animate(
           [
             { transform: `rotate(${angle}deg)` },
@@ -278,7 +286,12 @@
           ],
           {
             duration,
-            easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            // With the X control points at 1/3 and 2/3, this cubic is a
+            // time-domain Hermite curve. Its first derivative matches the
+            // endless spin and its last derivative is zero, avoiding both a
+            // speed jump at handoff and a hard stop at the reload angle.
+            easing:
+              `cubic-bezier(0.333333, ${firstControlY}, 0.666667, 1)`,
             fill: "forwards",
           },
         );

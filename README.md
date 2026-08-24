@@ -25,7 +25,7 @@ It automatically forces the expanded sidebar to the exact measured width needed 
 - Keeps the window-control container at its intrinsic width so the three glyphs cannot overlap or become unevenly compressed.
 - Gives the Windows controls Zen's exact square toolbar-button geometry, theme classes, hover and pressed treatment; the close button differs only by retaining its warning color.
 - Reuses and rotates the reload SVG that is actually active after Zen, themes, and other icon Mods have applied their styles, so loading does not add a second window-close glyph or introduce a mismatched replacement icon.
-- Quickly settles the rotating reload SVG back to its original angle when loading completes, then reveals Firefox's normal reload button without an abrupt orientation jump. Reduced-motion mode switches directly.
+- Smoothly settles the rotating reload SVG back to its original angle when loading completes. The finishing curve inherits the active spin speed and decelerates to zero before revealing Firefox's normal reload button; reduced-motion mode switches directly.
 - Measures a real neighboring navigation button so themes that target button IDs directly can also synchronize control size, radius, spacing, color tokens, and vertical alignment.
 - Marks the navigation buttons with Firefox's official non-overflowing attribute and measures the row at its uncompressed intrinsic width without temporarily widening the sidebar.
 - If a button was already inside `>>` before the mod loaded, briefly pauses Firefox's overflow manager so its own underflow path returns the button before measurement.
