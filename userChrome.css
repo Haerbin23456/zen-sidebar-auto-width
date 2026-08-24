@@ -41,11 +41,11 @@
     border-radius: 50% !important;
     background: var(--toolbarbutton-icon-fill, currentColor) !important;
     /*
-     * Match reload.svg's 18x18 viewport and outer radius 8, while using a
-     * slightly lighter 1.333-unit ring so the uninterrupted arc has the same
-     * optical weight as the reload glyph.
+     * Use the same filled outer/inner contours as reload.svg instead of an SVG
+     * stroke. Gecko rasterizes strokes more heavily than the reload icon's
+     * filled path even at the same nominal width.
      */
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='7.3335' fill='none' stroke='black' stroke-width='1.333' stroke-linecap='round' stroke-dasharray='33.7 12.38'/%3E%3C/svg%3E") center / contain no-repeat !important;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M9 1A8 8 0 1 1 1 9L2.5 9A6.5 6.5 0 1 0 9 2.5Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat !important;
     pointer-events: none !important;
     animation: zen-auto-stop-loading 800ms linear infinite !important;
   }
