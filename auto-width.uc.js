@@ -576,6 +576,10 @@
         );
       });
 
+      // A collapsed ancestor makes every row child disappear from layout.
+      // Treat that as "not measurable" rather than a legitimate empty row.
+      if (!children.length) return null;
+
       // At a narrow sidebar width the flex row compresses its buttons. Reading
       // those compressed rectangles makes each recalculation add only a few
       // pixels, producing a visible staircase toward the final width. Disable
@@ -644,15 +648,37 @@
       const targetAvailableWidth = customizationTarget.getBoundingClientRect().width;
       const targetRequiredWidth = requiredTargetOuterWidth();
 
+      // DOM fullscreen collapses browser chrome to 0x0 while keeping Zen's
+      // expanded attribute. Never turn that transient layout into a persisted
+      // sidebar width; otherwise the next visible passes staircase up from 2px.
+      if (!Number.isFinite(targetRequiredWidth) || targetRequiredWidth <= 0) {
+        return null;
+      }
+
       // Keep all non-target toolbox and toolbar chrome exactly as laid out by Zen.
       return Math.ceil(
         toolboxContentWidth - targetAvailableWidth + targetRequiredWidth + 2,
       );
     }
 
+    function sidebarChromeIsHidden() {
+      const root = document.documentElement;
+      const chromeHidden = new Set(
+        (root.getAttribute("chromehidden") || "").split(/\s+/).filter(Boolean),
+      );
+
+      return (
+        root.hasAttribute("inDOMFullscreen") ||
+        chromeHidden.has("location") ||
+        chromeHidden.has("toolbar") ||
+        getComputedStyle(toolbox).visibility === "collapse"
+      );
+    }
+
     async function calculate() {
       if (state.destroyed || state.running) return;
       if (toolbox.getAttribute("zen-sidebar-expanded") !== "true") return;
+      if (sidebarChromeIsHidden()) return;
 
       state.running = true;
       let pausedOverflowManager = null;
@@ -661,6 +687,10 @@
         lockOverflow();
         pausedOverflowManager = await pauseOverflowManagerForRecovery();
         await afterLayout();
+
+        // Fullscreen can begin while an already scheduled calculation is
+        // waiting for overflow recovery or animation frames.
+        if (sidebarChromeIsHidden()) return;
 
         if (overflowedPersistentButtons().length) {
           console.warn(
@@ -671,6 +701,7 @@
         }
 
         const requiredContentWidth = calculateToolboxContentWidth();
+        if (requiredContentWidth === null) return;
         const appliedWidth = applySidebarWidth(requiredContentWidth);
 
         lockOverflow();

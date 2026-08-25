@@ -4,9 +4,9 @@
   "author": "Haerbin23456",
   "name": "Zen Sidebar Auto Width",
   "description": "Automatically sizes Zen's expanded sidebar and harmonizes Windows controls with its toolbar spacing.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "createdAt": "2026-08-23",
-  "updatedAt": "2026-08-24",
+  "updatedAt": "2026-08-25",
   "readme": "https://raw.githubusercontent.com/Haerbin23456/zen-sidebar-auto-width/main/README.md",
   "preferences": "preferences.json",
   "style": {

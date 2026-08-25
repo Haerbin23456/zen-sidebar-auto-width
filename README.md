@@ -30,6 +30,7 @@ It automatically forces the expanded sidebar to the exact measured width needed 
 - Marks the navigation buttons with Firefox's official non-overflowing attribute and measures the row at its uncompressed intrinsic width without temporarily widening the sidebar.
 - If a button was already inside `>>` before the mod loaded, briefly pauses Firefox's overflow manager so its own underflow path returns the button before measurement.
 - Writes the result through the same inline `width` and `width` attribute path used by Zen's sidebar splitter, then forces that exact width while the sidebar is expanded.
+- Ignores Zen's transient `0 × 0` sidebar layout during webpage fullscreen, preserving the last valid width until browser chrome is visible again.
 - Recalculates after customization, sidebar expansion, window resizing, and display-scale changes.
 
 ## Options
